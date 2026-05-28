@@ -31,52 +31,93 @@ public class DepartmentServer {
 
             while (true) {
 
-                Socket socket = serverSocket.accept();
+                try (Socket socket = serverSocket.accept()) {
 
-                BufferedReader reader =
-                        new BufferedReader(
-                                new InputStreamReader(
-                                        socket.getInputStream()
-                                )
+                    BufferedReader reader =
+                            new BufferedReader(
+                                    new InputStreamReader(
+                                            socket.getInputStream()
+                                    )
+                            );
+
+                    String message = reader.readLine();
+
+                    if (!isValidMessage(message)) {
+                        System.err.println(
+                                "[" + departmentName + "] Ignoring malformed message: "
+                                + message
                         );
+                        continue;
+                    }
 
-                String message = reader.readLine();
+                    System.out.println(
+                            "[" + departmentName + "] "
+                            + "Received: "
+                            + message
+                    );
 
-                System.out.println(
-                        "[" + departmentName + "] "
-                        + "Received: "
-                        + message
-                );
+                    int requestId;
 
-                String[] parts = message.split(":");
+                    try {
+                        String[] parts = message.split(":", 2);
+                        requestId = Integer.parseInt(parts[0].trim());
 
-                int requestId = Integer.parseInt(parts[0]);
+                    } catch (NumberFormatException e) {
+                        System.err.println(
+                                "[" + departmentName + "] Invalid request id in message: "
+                                + message
+                        );
+                        continue;
+                    }
 
-                DistributedApprovalService service =
-                        new DistributedApprovalService();
+                    DistributedApprovalService service =
+                            new DistributedApprovalService();
 
-                service.processApproval(
-                        requestId,
-                        Department.valueOf(departmentName)
-                );
+                    service.processApproval(
+                            requestId,
+                            Department.valueOf(departmentName)
+                    );
 
-                System.out.println(
-                        departmentName
-                        + " finished processing "
-                        + requestId
-                );
+                    System.out.println(
+                            departmentName
+                            + " finished processing "
+                            + requestId
+                    );
 
-                NotificationSender.send(
-                        departmentName
-                        + " processed request "
-                        + requestId
-                );
+                    NotificationSender.send(
+                            departmentName
+                            + " processed request "
+                            + requestId
+                    );
 
-                socket.close();
+                } catch (IOException e) {
+                    System.err.println(
+                            "[" + departmentName + "] Socket handling failed: "
+                            + e.getMessage()
+                    );
+                }
             }
 
         } catch (IOException e) {
-            e.printStackTrace();
+            System.err.println(
+                    "[" + departmentName + "] Server failed to start on port "
+                    + port
+                    + ": "
+                    + e.getMessage()
+            );
         }
+    }
+
+    private boolean isValidMessage(String message) {
+        if (message == null || message.trim().isEmpty()) {
+            return false;
+        }
+
+        if (!message.contains(":")) {
+            return false;
+        }
+
+        String[] parts = message.split(":", 2);
+        return parts.length >= 2 && !parts[0].trim().isEmpty();
     }
 }

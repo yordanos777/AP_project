@@ -29,6 +29,15 @@ public class ClientHandler implements Runnable {
             String message =
                     reader.readLine();
 
+            if (!isValidMessage(message)) {
+                System.err.println(
+                        "[MainServer] Ignoring malformed message: "
+                        + message
+                );
+                socket.close();
+                return;
+            }
+
             System.out.println(
                     "Main Server Received: "
                     + message
@@ -55,9 +64,36 @@ public class ClientHandler implements Runnable {
             socket.close();
 
         } catch (IOException e) {
-            e.printStackTrace();
+                        System.err.println(
+                                        "[MainServer] Connection handling failed: "
+                                        + e.getMessage()
+                        );
         }
     }
+
+        private boolean isValidMessage(String message) {
+                if (message == null || message.trim().isEmpty()) {
+                        return false;
+                }
+
+                if (!message.contains(":")) {
+                        return false;
+                }
+
+                String[] parts = message.split(":", 2);
+
+                if (parts.length < 2 || parts[0].trim().isEmpty()) {
+                        return false;
+                }
+
+                try {
+                        Integer.parseInt(parts[0].trim());
+                        return true;
+
+                } catch (NumberFormatException e) {
+                        return false;
+                }
+        }
 
     private void forwardToDepartment(
             String department,
@@ -81,7 +117,12 @@ public class ClientHandler implements Runnable {
             System.out.println("Forwarded to " + department);
 
         } catch (IOException e) {
-            e.printStackTrace();
+                        System.err.println(
+                                        "[MainServer] Failed to forward to "
+                                        + department
+                                        + ": "
+                                        + e.getMessage()
+                        );
         }
     }
 }
