@@ -4,7 +4,6 @@ com\distributedclearance\gui\screens\admin\AdminDashboard.class
 com\distributedclearance\database\dao\StudentDAO.class
 com\distributedclearance\models\Approval.class
 com\distributedclearance\database\dao\UserDAO$1.class
-com\distributedclearance\server\networking\DistributedApprovalService$1.class
 com\distributedclearance\utils\Constants.class
 com\distributedclearance\models\enums\NotificationType.class
 com\distributedclearance\models\Notification.class
@@ -14,7 +13,6 @@ com\distributedclearance\models\DeptApproval.class
 com\distributedclearance\models\enums\Department.class
 com\distributedclearance\gui\navigation\SceneManager.class
 com\distributedclearance\database\dao\UserDAO.class
-com\distributedclearance\utils\ValidationUtil.class
 com\distributedclearance\models\enums\ApprovalStatus.class
 com\distributedclearance\gui\screens\BaseScreen.class
 com\distributedclearance\models\Student.class
@@ -24,7 +22,6 @@ com\distributedclearance\database\DatabaseManager.class
 com\distributedclearance\utils\DateTimeUtil.class
 com\distributedclearance\models\enums\MessageType.class
 com\distributedclearance\utils\PasswordUtil.class
-com\distributedclearance\models\ClearanceReport.class
 com\distributedclearance\gui\screens\officer\OfficerDashboard.class
 com\distributedclearance\models\DeptOfficer.class
 com\distributedclearance\database\dao\RequestDAO.class
