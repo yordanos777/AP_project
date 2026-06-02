@@ -17,12 +17,11 @@ import com.distributedclearance.server.networking.NotificationListener;
 import com.distributedclearance.server.networking.SocketClient;
 
 import javafx.application.Platform;
-import javafx.animation.KeyFrame;
-import javafx.animation.Timeline;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -30,24 +29,20 @@ import javafx.scene.control.ListView;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.cell.PropertyValueFactory;
-import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
-import javafx.util.Duration;
-
-import com.distributedclearance.gui.navigation.SceneManager;
+import javafx.scene.layout.HBox;
 
 public class StudentDashboard extends BaseScreen implements NotificationListener {
 
     private final Student student;
-
     private final RequestDAO requestDAO = new RequestDAO();
     private final ApprovalDAO approvalDAO = new ApprovalDAO();
 
     private Label overallStatusLabel;
+    private Label statusLabel;
     private ListView<String> notificationHistoryList;
     private TableView<ClearanceRequest> requestHistoryTable;
-        private TableView<Approval> approvalTable;
-        private Timeline refreshTimeline;
+    private ListView<String> approvalList;
 
     private int currentRequestId = -1;
 
@@ -58,304 +53,187 @@ public class StudentDashboard extends BaseScreen implements NotificationListener
 
     @Override
     protected void initialize() {
-        VBox content = new VBox(18);
-        content.setPadding(new Insets(20));
-        content.setFillWidth(true);
-        content.getStyleClass().add("dashboard-card");
+        // Step 1: Inject the universal top bar header
+        setupTopHeaderBar("Student Clearance Portal");
 
-        Label title = new Label("Student Dashboard");
-        title.getStyleClass().add("app-title");
+        VBox container = new VBox(15);
+        container.setPadding(new Insets(15, 0, 0, 0));
+        container.setAlignment(Pos.TOP_CENTER);
 
-        Label welcomeLabel = new Label("Welcome, " + student.getFullName());
-        welcomeLabel.getStyleClass().add("welcome-label");
+        Label welcomeLabel = new Label("Logged in as: " + student.getFullName() + " (" + student.getStudentId() + ")");
+        welcomeLabel.setStyle("-fx-font-size: 14px; -fx-text-fill: #cbd5e1;");
 
         overallStatusLabel = new Label("Overall Clearance Status: PENDING");
-        overallStatusLabel.getStyleClass().add("status-label");
+        overallStatusLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #f59e0b;");
 
-        VBox header = new VBox(6, title, welcomeLabel, overallStatusLabel);
-        header.setFillWidth(true);
+        // Split tracking layouts row
+        HBox historySplitBox = new HBox(20);
+        historySplitBox.setAlignment(Pos.CENTER);
 
-        Label notificationHistoryTitle = new Label("Notification History");
-        notificationHistoryTitle.getStyleClass().add("section-title");
-
+        VBox notificationBox = new VBox(8);
+        notificationBox.setPrefWidth(470);
+        Label notifTitle = new Label("Live Alerts Stream Log");
+        notifTitle.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: white;");
         notificationHistoryList = new ListView<>();
-        notificationHistoryList.setPlaceholder(
-                new Label("No notifications yet.")
-        );
-        notificationHistoryList.getStyleClass().add("data-list");
-        notificationHistoryList.setMaxWidth(Double.MAX_VALUE);
+        notificationHistoryList.setPrefHeight(150);
+        notificationHistoryList.setStyle("-fx-control-inner-background: #1e293b; -fx-text-fill: #22c55e;");
+        notificationHistoryList.setPlaceholder(new Label("No system alerts broadcasted yet."));
+        notificationBox.getChildren().addAll(notifTitle, notificationHistoryList);
 
-        Button submitButton = new Button("Submit Clearance Request");
-        submitButton.getStyleClass().add("primary-button");
-        submitButton.setMaxWidth(Double.MAX_VALUE);
+        VBox approvalDeptBox = new VBox(8);
+        approvalDeptBox.setPrefWidth(470);
+        Label deptTitle = new Label("Inter-Department Sign-off Breakdowns");
+        deptTitle.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: white;");
+        approvalList = new ListView<>();
+        approvalList.setPrefHeight(150);
+        approvalList.setStyle("-fx-control-inner-background: #1e293b; -fx-text-fill: #ffffff;");
+        approvalDeptBox.getChildren().addAll(deptTitle, approvalList);
 
-        Label statusLabel = new Label();
-        statusLabel.getStyleClass().add("status-label");
+        historySplitBox.getChildren().addAll(notificationBox, approvalDeptBox);
 
-        Label approvalDetailsTitle = new Label("Department Approval Details");
-        approvalDetailsTitle.getStyleClass().add("section-title");
+        // Core Action Submission Button Configuration
+        Button submitButton = new Button("File New Clearance Request");
+        submitButton.setPrefWidth(300);
+        submitButton.setPrefHeight(40);
+        submitButton.setStyle("-fx-background-color: #2563eb; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-background-radius: 4px; -fx-cursor: hand;");
 
-        approvalTable = new TableView<>();
-        approvalTable.setPlaceholder(
-                new Label("No approval details available yet.")
-        );
-        approvalTable.getStyleClass().add("dark-table");
-        approvalTable.setMaxWidth(Double.MAX_VALUE);
+        statusLabel = new Label();
+        statusLabel.setStyle("-fx-font-size: 13px; -fx-text-fill: #cbd5e1;");
 
-        TableColumn<Approval, String> departmentColumn =
-                new TableColumn<>("Department");
-        departmentColumn.setCellValueFactory(cellData ->
-                new SimpleStringProperty(
-                        cellData.getValue().getDepartment().name()
-                )
-        );
-
-        TableColumn<Approval, String> statusColumn =
-                new TableColumn<>("Status");
-        statusColumn.setCellValueFactory(cellData ->
-                new SimpleStringProperty(
-                        cellData.getValue().getStatus().name()
-                )
-        );
-
-        TableColumn<Approval, String> commentColumn =
-                new TableColumn<>("Officer Comment / Reason");
-        commentColumn.setCellValueFactory(cellData -> {
-            String comment = cellData.getValue().getComment();
-            if (comment == null || comment.trim().isEmpty()) {
-                comment = "No comment provided.";
-            }
-
-            return new SimpleStringProperty(comment);
-        });
-
-        approvalTable.getColumns().add(departmentColumn);
-        approvalTable.getColumns().add(statusColumn);
-        approvalTable.getColumns().add(commentColumn);
-
-        Label requestHistoryTitle = new Label("Request History");
-        requestHistoryTitle.getStyleClass().add("section-title");
-
+        // Processing History Table Configuration
+        VBox tableWrapper = new VBox(8);
+        Label tableTitle = new Label("Your Clearance Applications History Logs");
+        tableTitle.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: white;");
+        
         requestHistoryTable = new TableView<>();
-        requestHistoryTable.setPlaceholder(
-                new Label("No requests submitted yet.")
-        );
-        requestHistoryTable.getStyleClass().add("dark-table");
-        requestHistoryTable.setMaxWidth(Double.MAX_VALUE);
+        requestHistoryTable.setPrefHeight(200);
+        requestHistoryTable.setStyle("-fx-control-inner-background: #1e293b; -fx-text-fill: #ffffff; -fx-border-color: #334155;");
+        requestHistoryTable.setPlaceholder(new Label("No clearance processing requests on record."));
 
-        TableColumn<ClearanceRequest, Integer> requestIdColumn =
-                new TableColumn<>("Request ID");
-        requestIdColumn.setCellValueFactory(
-                new PropertyValueFactory<>("requestId")
-        );
+        TableColumn<ClearanceRequest, Integer> requestIdColumn = new TableColumn<>();
+        requestIdColumn.setCellValueFactory(new PropertyValueFactory<>("requestId"));
+        requestIdColumn.setPrefWidth(150);
+        // FIX: Force Header Label Color
+        Label lblId = new Label("Request ID");
+        lblId.setStyle("-fx-text-fill: #1e293b; -fx-font-weight: bold; -fx-font-size: 13px;");
+        requestIdColumn.setGraphic(lblId);
 
-        TableColumn<ClearanceRequest, String> submittedAtColumn =
-                new TableColumn<>("Submission Date");
+        TableColumn<ClearanceRequest, String> submittedAtColumn = new TableColumn<>();
+        submittedAtColumn.setCellValueFactory(cellData -> new SimpleStringProperty(formatSubmittedAt(cellData.getValue().getSubmittedAt())));
+        submittedAtColumn.setPrefWidth(250);
+        // FIX: Force Header Label Color
+        Label lblTime = new Label("Filing Timestamp");
+        lblTime.setStyle("-fx-text-fill: #1e293b; -fx-font-weight: bold; -fx-font-size: 13px;");
+        submittedAtColumn.setGraphic(lblTime);
 
-        submittedAtColumn.setCellValueFactory(cellData ->
-            new SimpleStringProperty(
-                    formatSubmittedAt(
-                            cellData.getValue().getSubmittedAt()
-                    )
-            )
-        );
+        TableColumn<ClearanceRequest, String> overallRequestStatusColumn = new TableColumn<>();
+        overallRequestStatusColumn.setCellValueFactory(cellData -> {
+            if (cellData.getValue() != null && cellData.getValue().getStatus() != null) {
+                return new SimpleStringProperty(cellData.getValue().getStatus().name());
+            }
+            return new SimpleStringProperty("PENDING");
+        });
+        overallRequestStatusColumn.setPrefWidth(200);
+        // FIX: Force Header Label Color
+        Label lblStatus = new Label("Processing Status");
+        lblStatus.setStyle("-fx-text-fill: #1e293b; -fx-font-weight: bold; -fx-font-size: 13px;");
+        overallRequestStatusColumn.setGraphic(lblStatus);
 
-        TableColumn<ClearanceRequest, String> overallRequestStatusColumn =
-                new TableColumn<>("Overall Status");
+        requestHistoryTable.getColumns().addAll(requestIdColumn, submittedAtColumn, overallRequestStatusColumn);
+        tableWrapper.getChildren().addAll(tableTitle, requestHistoryTable);
 
-        overallRequestStatusColumn.setCellValueFactory(cellData ->
-                new SimpleStringProperty(
-                        formatOverallRequestStatus(
-                                cellData.getValue().getStatus()
-                        )
-                )
-        );
-
-                requestHistoryTable.getColumns().add(requestIdColumn);
-                requestHistoryTable.getColumns().add(submittedAtColumn);
-                requestHistoryTable.getColumns().add(overallRequestStatusColumn);
-
-                VBox notificationSection = new VBox(8, notificationHistoryTitle, notificationHistoryList);
-                notificationSection.setFillWidth(true);
-
-                VBox requestSection = new VBox(8, requestHistoryTitle, requestHistoryTable);
-                requestSection.setFillWidth(true);
-
-                VBox approvalSection = new VBox(8, approvalDetailsTitle, approvalTable);
-                approvalSection.setFillWidth(true);
-
-                VBox actionSection = new VBox(10, submitButton, statusLabel);
-                actionSection.setFillWidth(true);
-
+        // Submission Event Handler Wireframe
         submitButton.setOnAction(event -> {
             boolean success = requestDAO.submitRequest(student);
-
             if (success) {
                 currentRequestId = requestDAO.getLatestRequestId(student.getId());
-
-                SocketClient.sendMessage(
-                    currentRequestId + ":"
-                    + student.getFullName()
-                );
-
-                statusLabel.setText("Clearance request submitted successfully.");
-
+                SocketClient.sendMessage(currentRequestId + ":" + student.getFullName());
+                statusLabel.setText("Clearance processing order filed successfully.");
+                statusLabel.setStyle("-fx-text-fill: #22c55e;");
                 loadApprovals();
                 loadRequestHistory();
-
             } else {
-                statusLabel.setText("Failed to submit request.");
+                statusLabel.setText("Error: Database system rejected application filing command.");
+                statusLabel.setStyle("-fx-text-fill: #ef4444;");
             }
         });
 
-        content.getChildren().addAll(
-                header,
-                notificationSection,
-                actionSection,
-                requestSection,
-                approvalSection
-        );
+        // Assemble nodes into container
+        container.getChildren().addAll(welcomeLabel, overallStatusLabel, historySplitBox, submitButton, statusLabel, tableWrapper);
+        setCenter(container);
 
-        VBox.setVgrow(notificationHistoryList, Priority.ALWAYS);
-        VBox.setVgrow(requestHistoryTable, Priority.ALWAYS);
-        VBox.setVgrow(approvalTable, Priority.ALWAYS);
-
-        setCenter(content);
-
+        // Turn on underlying multi-threaded network pipeline listener daemon
         NotificationClient client = new NotificationClient(this);
-
         Thread notificationThread = new Thread(client);
-
         notificationThread.setDaemon(true);
         notificationThread.start();
+
+        // Run initial interface calculations data mapping parameters load loop
         loadRequestHistory();
-        refreshTimeline = new Timeline(
-                new KeyFrame(Duration.seconds(5), event -> {
-                    loadRequestHistory();
-                    if (currentRequestId != -1) {
-                        loadApprovals();
-                    }
-                })
-        );
-        refreshTimeline.setCycleCount(Timeline.INDEFINITE);
-        refreshTimeline.play();
+        currentRequestId = requestDAO.getLatestRequestId(student.getId());
+        if (currentRequestId != -1) {
+            loadApprovals();
+        }
     }
 
     private void loadRequestHistory() {
-
-        List<ClearanceRequest> requests =
-                requestDAO.getRequestsByStudentId(student.getId());
-
-        ObservableList<ClearanceRequest> historyItems =
-                FXCollections.observableArrayList(requests);
-
+        List<ClearanceRequest> requests = requestDAO.getRequestsByStudentId(student.getId());
+        ObservableList<ClearanceRequest> historyItems = FXCollections.observableArrayList(requests);
         requestHistoryTable.setItems(historyItems);
     }
 
     private void loadApprovals() {
+        if (currentRequestId == -1) return;
+        approvalList.getItems().clear();
+        List<Approval> approvals = approvalDAO.getApprovalsByRequestId(currentRequestId);
 
-        approvalTable.getItems().clear();
-
-        if (currentRequestId == -1) {
-            overallStatusLabel.setText("Overall Clearance Status: PENDING");
-            return;
+        for (Approval approval : approvals) {
+            approvalList.getItems().add(" • " + approval.getDepartment().name() + " Department Status: [" + approval.getStatus() + "]");
         }
-
-        List<Approval> approvals =
-                approvalDAO.getApprovalsByRequestId(
-                        currentRequestId
-                );
-
-        ObservableList<Approval> approvalItems =
-                FXCollections.observableArrayList(approvals);
-
-        approvalTable.setItems(approvalItems);
-
-                updateOverallStatus(approvals);
-        }
-
-        private void updateOverallStatus(List<Approval> approvals) {
-                String overallStatus = "PENDING";
-
-                if (approvals != null && !approvals.isEmpty()) {
-
-                        boolean allApproved = true;
-
-                        for (Approval approval : approvals) {
-
-                                if (approval.getStatus() == ApprovalStatus.REJECTED) {
-                                        overallStatus = "REJECTED";
-                                        allApproved = false;
-                                        break;
-                                }
-
-                                if (approval.getStatus() != ApprovalStatus.APPROVED) {
-                                        allApproved = false;
-                                }
-                        }
-
-                        if (allApproved) {
-                                overallStatus = "CLEARED";
-            }
-                }
-
-                overallStatusLabel.setText(
-                                "Overall Clearance Status: " + overallStatus
-                );
+        updateOverallStatus(approvals);
     }
 
-        private String formatSubmittedAt(LocalDateTime submittedAt) {
-                if (submittedAt == null) {
-                        return "N/A";
-                }
+        private void updateOverallStatus(List<Approval> approvals) {
+        String overallStatus = "PENDING";
+        overallStatusLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #f59e0b;");
 
-                return submittedAt.format(
-                                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
-                );
+        if (approvals != null && !approvals.isEmpty()) {
+            boolean allApproved = true;
+            for (Approval approval : approvals) {
+                if (approval.getStatus() == ApprovalStatus.REJECTED) {
+                    overallStatus = "REJECTED";
+                    overallStatusLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #ef4444;");
+                    allApproved = false;
+                    break; // Exit loop immediately if even one department rejects
+                }
+                if (approval.getStatus() != ApprovalStatus.APPROVED) {
+                    allApproved = false;
+                }
+            }
+            if (allApproved) {
+                overallStatus = "CLEARED";
+                overallStatusLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #22c55e;");
+            }
         }
-
-        private String formatOverallRequestStatus(RequestStatus status) {
-                if (status == null) {
-                        return "PENDING";
-                }
-
-                if (status == RequestStatus.FULLY_APPROVED) {
-                        return "CLEARED";
-                }
-
-                return status.name();
-        }
-
-    public Scene createScene() {
-                Scene scene = new Scene(this, 1000, 700);
-                SceneManager.applyTheme(scene);
-                return scene;
+        overallStatusLabel.setText("Overall Clearance Status: " + overallStatus);
+    }
+    private String formatSubmittedAt(LocalDateTime submittedAt) {
+        if (submittedAt == null) return "N/A";
+        return submittedAt.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
     }
 
     @Override
     public void onNotificationReceived(String message) {
-
+        // Enforce execution safely inside the main JavaFX rendering timeline loop
         Platform.runLater(() -> {
-
-            String timestamp = LocalDateTime.now().format(
-                    DateTimeFormatter.ofPattern("HH:mm:ss")
-            );
-
-            String notificationEntry =
-                    "[" + timestamp + "] " + message;
-
-            System.out.println(
-                    "UI RECEIVED NOTIFICATION: "
-                    + notificationEntry
-            );
-
-            notificationHistoryList.getItems().add(0, notificationEntry);
-
-                        loadRequestHistory();
-
-            if (currentRequestId != -1) {
-                loadApprovals();
-            }
+            notificationHistoryList.getItems().add(0, "[Alert] " + message);
+            loadRequestHistory();
+            loadApprovals();
         });
     }
+
+    public Scene createScene() {
+        return new Scene(this, 1000, 700);
+    }
 }
+
