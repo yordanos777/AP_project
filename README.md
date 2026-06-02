@@ -238,7 +238,7 @@ mvn javafx:run
 
 ### Login Screen
 
-*Add screenshot here*
+<img src="screenshots/login.png" alt="Description" width="400">
 
 ### Student Dashboard
 
