@@ -238,16 +238,16 @@ mvn javafx:run
 
 ### Login Screen
 
-<img src="screenshots/login.png" alt="Description" width="400">
+<img src="screenshots/login.png" alt="Description" width="600">
 
 ### Student Dashboard
 
-*Add screenshot here*
+<img src="screenshots/studentDashboard.png" alt="Description" width="600">
 
 ### Officer Dashboard
 
-*Add screenshot here*
+<img src="screenshots/officerDashboard.png" alt="Description" width="600">
 
 ### Admin Dashboard
 
-*Add screenshot here*
+<img src="screenshots/adminDashboard.png" alt="Description" width="600">
